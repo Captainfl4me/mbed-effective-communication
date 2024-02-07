@@ -1,15 +1,18 @@
 #include "mbed.h"
 #include "json_parser.hpp"
-#include <cstring>
+
+#include <string>
 #include <list>
 
-#define READ_BUFFER_LENGTH 4
+#define READ_BUFFER_LENGTH 64
 #define LOG_BUFFER_LENGTH 256
 
 int length;
 char previous_read_buffer[READ_BUFFER_LENGTH] = {0};
 char read_buffer[READ_BUFFER_LENGTH] = {0};
 char log_buffer[LOG_BUFFER_LENGTH] = {0};
+
+PwmOut led(LED1);
 
 // main() runs in its own thread in the OS
 int main()
@@ -23,7 +26,7 @@ int main()
 
     size_t read_length = -EAGAIN;
     size_t previous_buffer_length = 0;
-    std::list<JSONToken> lexer_tokens;
+    std::list<JSONLexer::JSONToken> lexer_tokens;
     while (true) {
         // if we read something
         if ((read_length = pc.read(read_buffer, READ_BUFFER_LENGTH)) != -EAGAIN){
@@ -54,7 +57,7 @@ int main()
                     length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: lex: %.*s (len: %d)\r\n", previous_buffer_length, previous_read_buffer, previous_buffer_length);
                     pc.write(log_buffer, length);
 
-                    LexerResult lex_result = JsonLexer(previous_read_buffer, previous_buffer_length);
+                    JSONLexer::LexerResult lex_result = JSONLexer::LexBuffer(previous_read_buffer, previous_buffer_length);
                     
                     if (lex_result.isLastTokenFinishLexing) {
                         previous_buffer_length = 0;
@@ -64,7 +67,7 @@ int main()
                         std::memmove(previous_read_buffer, previous_read_buffer + lex_result.lastTokenStartIndex, previous_buffer_length);
                     }
                     
-                    // DEBUG: Show what is the ouput of the Lexer
+                    // // DEBUG: Show what is the ouput of the Lexer
                     length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Tokens_len = %d | isFinishLexing = %d | lastTokenIndex = %d\r\n",  lex_result.tokens.size(), lex_result.isLastTokenFinishLexing, lex_result.lastTokenStartIndex);
                     pc.write(log_buffer, length);
 
@@ -81,9 +84,18 @@ int main()
             length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Lexing: tokens = %d !\r\n", lexer_tokens.size());
             pc.write(log_buffer, length);
 
+            JSONParser::JSONValue map = JSONParser::ParseTokens(lexer_tokens);
+            if (map.getMap()->count("led")) {
+                int val = map.getMap()->at("led").getInt();
+                length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Change LED value %d !\r\n", val);
+                pc.write(log_buffer, length);
+                led.write((float)val / 255);
+            }
+
             length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Parsing !\r\n");
             pc.write(log_buffer, length);
 
+            lexer_tokens.clear();
             pc.set_blocking(true);
         }
     }

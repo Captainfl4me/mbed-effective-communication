@@ -1,43 +1,90 @@
+#pragma once
+
 #include <stdlib.h>
 #include <list>
 #include <string>
+#include <map>
+#include <vector>
 
-enum JSONTokenType { 
-    StartObject,
-    EndObject,
-    StartArray,
-    EndArray,
-    Comma,
-    Colon,
+namespace JSONLexer {
+    enum JSONTokenType { 
+        StartObject,
+        EndObject,
+        StartArray,
+        EndArray,
+        Comma,
+        Colon,
 
-    String,
-    Boolean,
-    Number,
-    Null
-};
+        String,
+        Boolean,
+        Integer,
+        Float,
+        Null
+    };
 
-struct JSONToken {
-    JSONTokenType type;
+    struct JSONToken {
+        JSONTokenType type;
 
-    std::string stringValue;
-    bool boolValue;
-    int intValue;
-};
+        std::string stringValue;
+        bool boolValue;
+        int intValue;
+        float floatValue;
+    };
 
-struct LexerResult {
-    std::list<JSONToken> tokens;
-    bool isLastTokenFinishLexing = false;
-    size_t lastTokenStartIndex = 0;
-};
+    struct LexerResult {
+        std::list<JSONToken> tokens;
+        bool isLastTokenFinishLexing = false;
+        size_t lastTokenStartIndex = 0;
+    };
 
-LexerResult JsonLexer(char* buffer, int buffer_length);
-
-/*
-{
-    "a" : [1, 2, 3],
-    "b" : {
-        "a" : "1"
-    }
+    LexerResult LexBuffer(char* buffer, int buffer_length);
 }
 
-*/
+namespace JSONParser {
+    class JSONValue;
+    union JSONValueMemory {
+        bool boolValue;
+        int intValue;
+        float floatValue;
+
+        std::string* stringValue;
+        std::vector<JSONValue>* arrayValue;
+        std::map<std::string, JSONValue>* mapValue;
+    };
+    enum JSONValueType {
+        Object,
+        Array,
+        String,
+        Boolean,
+        Integer,
+        Float,
+        Null
+    };
+
+    class JSONValue {
+        JSONValueType type;
+        JSONValueMemory value;
+
+    public:
+        JSONValue();
+        JSONValue(JSONLexer::JSONToken *token);
+        JSONValue(std::map<std::string, JSONParser::JSONValue> *map);
+
+        bool isBoolean();
+        bool isInt();
+        bool isFloat();
+        bool isString();
+        bool isNull();
+        bool isMap();
+
+        bool getBoolean();
+        int getInt();
+        float getFloat();
+        std::string getString();
+        int getNull();
+
+        std::map<std::string, JSONParser::JSONValue>* getMap();
+    };
+
+    JSONValue ParseTokens(std::list<JSONLexer::JSONToken> tokens);
+}
