@@ -1,4 +1,5 @@
 #include "json_parser.hpp"
+#include <vector>
 
 JSONLexer::LexerResult JSONLexer::LexBuffer(char* buffer, int buffer_length) {
     std::list<JSONLexer::JSONToken> tokens;
@@ -195,6 +196,11 @@ JSONParser::JSONValue::JSONValue(std::map<std::string, JSONParser::JSONValue> *m
     this->value.mapValue = new std::map<std::string, JSONParser::JSONValue>(*map);
 }
 
+JSONParser::JSONValue::JSONValue(std::vector<JSONParser::JSONValue> *vec) {
+    this->type = JSONParser::JSONValueType::Array;
+    this->value.arrayValue = new std::vector<JSONParser::JSONValue>(*vec);
+}
+
 bool JSONParser::JSONValue::isBoolean() {
     return this->type == JSONParser::JSONValueType::Boolean;
 }
@@ -212,6 +218,9 @@ bool JSONParser::JSONValue::isNull() {
 }
 bool JSONParser::JSONValue::isMap() {
     return this->type == JSONParser::JSONValueType::Object;
+}
+bool JSONParser::JSONValue::isArray() {
+    return this->type == JSONParser::JSONValueType::Array;
 }
 
 
@@ -251,33 +260,81 @@ std::map<std::string, JSONParser::JSONValue>* JSONParser::JSONValue::getMap() {
     
     return this->value.mapValue;
 }
+std::vector<JSONParser::JSONValue>* JSONParser::JSONValue::getArray() {
+    if (!this->isArray())
+        fprintf(stderr, "\r\n[ERR]: Value is not an Array !\r\n");
+    
+    return this->value.arrayValue;
+}
 
-JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> tokens) {
-    std::map<std::string, JSONParser::JSONValue> map;
-    if (tokens.front().type != JSONLexer::JSONTokenType::StartObject) {
-        fprintf(stderr, "\r\n[ERR]: First token should be '{' !\r\n");
+JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *tokens) {
+    if (tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
+        std::map<std::string, JSONParser::JSONValue> map;
+        tokens->pop_front();
+
+        std::string key;
+        while(tokens->front().type != JSONLexer::JSONTokenType::EndObject) {
+            if (tokens->front().type != JSONLexer::JSONTokenType::String) {
+                fprintf(stderr, "\r\n[ERR]: Expected key token should be string !\r\n");
+                return JSONParser::JSONValue();
+            }
+            key = tokens->front().stringValue;
+            tokens->pop_front();
+
+            if (tokens->front().type != JSONLexer::JSONTokenType::Colon) {
+                fprintf(stderr, "\r\n[ERR]: Expected Colon between key and value!\r\n");
+                return JSONParser::JSONValue();
+            }
+            tokens->pop_front();
+
+            if (tokens->front().type == JSONLexer::JSONTokenType::StartArray 
+            || tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
+                map[key] = JSONParser::ParseTokens(tokens);
+            } else {
+                map[key] = JSONParser::JSONValue(&tokens->front());
+                tokens->pop_front();
+            }
+
+            if (tokens->front().type != JSONLexer::JSONTokenType::EndObject) {
+                if (tokens->front().type == JSONLexer::JSONTokenType::Comma) {
+                    tokens->pop_front();
+                } else {
+                    fprintf(stderr, "\r\n[ERR]: Expected Comma between entries!\r\n");
+                    return JSONParser::JSONValue();
+                }
+            }
+        }
+        tokens->pop_front();
+
+        return JSONParser::JSONValue(&map);
+    } else if (tokens->front().type == JSONLexer::JSONTokenType::StartArray) {
+        std::vector<JSONParser::JSONValue> vec;
+        tokens->pop_front();
+
+        while(tokens->front().type != JSONLexer::JSONTokenType::EndArray) {
+            
+            if (tokens->front().type == JSONLexer::JSONTokenType::StartArray 
+            || tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
+                vec.push_back(JSONParser::ParseTokens(tokens));
+            } else {
+                vec.push_back(JSONParser::JSONValue(&tokens->front()));
+                tokens->pop_front();
+            }
+
+            if (tokens->front().type != JSONLexer::JSONTokenType::EndArray) {
+                if (tokens->front().type == JSONLexer::JSONTokenType::Comma) {
+                    tokens->pop_front();
+                } else {
+                    fprintf(stderr, "\r\n[ERR]: Expected Comma between entries!\r\n");
+                    return JSONParser::JSONValue();
+                }
+            }
+        }
+        tokens->pop_front();
+
+        return JSONParser::JSONValue(&vec);
+    }else {
+        fprintf(stderr, "\r\n[ERR]: First token should be '{' or '[' !\r\n");
         return JSONParser::JSONValue();
     }
-    tokens.pop_front();
-
-    std::string key;
-    while(tokens.front().type != JSONLexer::JSONTokenType::EndObject) {
-        if (tokens.front().type != JSONLexer::JSONTokenType::String) {
-            fprintf(stderr, "\r\n[ERR]: Expected key token should be string !\r\n");
-            return JSONParser::JSONValue();
-        }
-        key = tokens.front().stringValue;
-        tokens.pop_front();
-
-        if (tokens.front().type != JSONLexer::JSONTokenType::Colon) {
-            fprintf(stderr, "\r\n[ERR]: Expected Colon between key and value!\r\n");
-            return JSONParser::JSONValue();
-        }
-        tokens.pop_front();
-
-        map[key] = JSONParser::JSONValue(&tokens.front());
-        tokens.pop_front();        
-    }
-
-    return JSONParser::JSONValue(&map);
 }

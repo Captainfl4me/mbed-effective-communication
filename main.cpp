@@ -84,12 +84,30 @@ int main()
             length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Lexing: tokens = %d !\r\n", lexer_tokens.size());
             pc.write(log_buffer, length);
 
-            JSONParser::JSONValue map = JSONParser::ParseTokens(lexer_tokens);
-            if (map.getMap()->count("led")) {
-                int val = map.getMap()->at("led").getInt();
-                length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Change LED value %d !\r\n", val);
-                pc.write(log_buffer, length);
-                led.write((float)val / 255);
+            JSONParser::JSONValue value = JSONParser::ParseTokens(&lexer_tokens);
+            if (value.isMap()) {
+                if (value.getMap()->count("led")) {
+                    int val = value.getMap()->at("led").getInt();
+                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Change LED value %d !\r\n", val);
+                    pc.write(log_buffer, length);
+                    led.write((float)val / 255);
+                }
+                if (value.getMap()->count("a")) {
+                    JSONParser::JSONValue a = value.getMap()->at("a");         
+                    for(int i = 0; i < a.getArray()->size(); i++) {
+                        int val = a.getArray()->at(i).getInt();
+                        length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Found int %d at %d !\r\n", val, i);
+                        pc.write(log_buffer, length);
+                        ThisThread::sleep_for(100ms);
+                    }
+                }
+            } else if (value.isArray()) {
+                for(int i = 0; i < value.getArray()->size(); i++) {
+                    int val = value.getArray()->at(i).getInt();
+                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Found int %d at %d !\r\n", val, i);
+                    pc.write(log_buffer, length);
+                    ThisThread::sleep_for(100ms);
+                }
             }
 
             length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Parsing !\r\n");

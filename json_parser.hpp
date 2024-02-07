@@ -69,6 +69,7 @@ namespace JSONParser {
         JSONValue();
         JSONValue(JSONLexer::JSONToken *token);
         JSONValue(std::map<std::string, JSONParser::JSONValue> *map);
+        JSONValue(std::vector<JSONParser::JSONValue> *vec);
 
         bool isBoolean();
         bool isInt();
@@ -76,6 +77,7 @@ namespace JSONParser {
         bool isString();
         bool isNull();
         bool isMap();
+        bool isArray();
 
         bool getBoolean();
         int getInt();
@@ -84,7 +86,8 @@ namespace JSONParser {
         int getNull();
 
         std::map<std::string, JSONParser::JSONValue>* getMap();
+        std::vector<JSONParser::JSONValue>* getArray();
     };
 
-    JSONValue ParseTokens(std::list<JSONLexer::JSONToken> tokens);
+    JSONValue ParseTokens(std::list<JSONLexer::JSONToken> *tokens);
 }
