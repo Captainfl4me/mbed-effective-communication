@@ -1,28 +1,35 @@
 #include "mbed.h"
 #include "json_parser.hpp"
+#include "logger.hpp"
 
 #include <string>
 #include <list>
 
 #define READ_BUFFER_LENGTH 64
-#define LOG_BUFFER_LENGTH 256
 
 int length;
 char previous_read_buffer[READ_BUFFER_LENGTH] = {0};
 char read_buffer[READ_BUFFER_LENGTH] = {0};
-char log_buffer[LOG_BUFFER_LENGTH] = {0};
 
 PwmOut led(LED1);
+BufferedSerial pc(USBTX, USBRX, 115200);
+Log::Logger logger(&pc, Log::LogFrameType::DEBUG);
+
+Thread thread;
+void watchdog_thread(){
+    while (true) {
+        logger.flushLogToSerial();
+        ThisThread::sleep_for(10ms);
+    }
+}
 
 // main() runs in its own thread in the OS
 int main()
 {
-    // Initialize serial bus
-    BufferedSerial pc(USBTX, USBRX, 115200);
+    thread.start(callback(watchdog_thread));
+
     pc.set_blocking(true);
-    
-    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "Hello !\r\n");
-    pc.write(log_buffer, length);
+    logger.addLogToQueue(Log::LogFrameType::INFO, "Program started!");
 
     size_t read_length = -EAGAIN;
     size_t previous_buffer_length = 0;
@@ -38,8 +45,7 @@ int main()
                 if (read_length <= 0) continue; 
 
                 // DEBUG: write readed buffer
-                length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: buff: %.*s (len: %d)\r\n", read_length, read_buffer, read_length);
-                pc.write(log_buffer, length);
+                logger.addLogToQueue(Log::LogFrameType::DEBUG, "buff: %.*s (len: %d)", read_length, read_buffer, read_length);
 
                 int left_in_read_buffer = read_length;
                 while(left_in_read_buffer > 0) {
@@ -54,8 +60,7 @@ int main()
                     previous_buffer_length = previous_buffer_length + read_length - read_buffer_offset - left_in_read_buffer;
 
                     // DEBUG: Show what is the input buffer of the lexer
-                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: lex: %.*s (len: %d)\r\n", previous_buffer_length, previous_read_buffer, previous_buffer_length);
-                    pc.write(log_buffer, length);
+                    logger.addLogToQueue(Log::LogFrameType::DEBUG, "lex: %.*s (len: %d)", previous_buffer_length, previous_read_buffer, previous_buffer_length);
 
                     JSONLexer::LexerResult lex_result = JSONLexer::LexBuffer(previous_read_buffer, previous_buffer_length);
                     
@@ -68,8 +73,7 @@ int main()
                     }
                     
                     // // DEBUG: Show what is the ouput of the Lexer
-                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Tokens_len = %d | isFinishLexing = %d | lastTokenIndex = %d\r\n",  lex_result.tokens.size(), lex_result.isLastTokenFinishLexing, lex_result.lastTokenStartIndex);
-                    pc.write(log_buffer, length);
+                    logger.addLogToQueue(Log::LogFrameType::DEBUG, "Tokens_len = %d | isFinishLexing = %d | lastTokenIndex = %d",  lex_result.tokens.size(), lex_result.isLastTokenFinishLexing, lex_result.lastTokenStartIndex);
 
                     while (!lex_result.tokens.empty()) {
                         lexer_tokens.push_back(lex_result.tokens.front());
@@ -81,37 +85,32 @@ int main()
                 pc.set_blocking(false);
             }while((read_length = pc.read(read_buffer, READ_BUFFER_LENGTH)) != -EAGAIN);
 
-            length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Lexing: tokens = %d !\r\n", lexer_tokens.size());
-            pc.write(log_buffer, length);
+            logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Lexing: tokens = %d !", lexer_tokens.size());
 
             JSONParser::JSONValue value = JSONParser::ParseTokens(&lexer_tokens);
             if (value.isMap()) {
                 if (value.getMap()->count("led")) {
                     int val = value.getMap()->at("led").getInt();
-                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Change LED value %d !\r\n", val);
-                    pc.write(log_buffer, length);
+                    logger.addLogToQueue(Log::LogFrameType::INFO, "Change LED value %d !", val);
                     led.write((float)val / 255);
                 }
                 if (value.getMap()->count("a")) {
                     JSONParser::JSONValue a = value.getMap()->at("a");         
                     for(int i = 0; i < a.getArray()->size(); i++) {
                         int val = a.getArray()->at(i).getInt();
-                        length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Found int %d at %d !\r\n", val, i);
-                        pc.write(log_buffer, length);
+                        logger.addLogToQueue(Log::LogFrameType::DEBUG, "Found int %d at %d !", val, i);
                         ThisThread::sleep_for(100ms);
                     }
                 }
             } else if (value.isArray()) {
                 for(int i = 0; i < value.getArray()->size(); i++) {
                     int val = value.getArray()->at(i).getInt();
-                    length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: Found int %d at %d !\r\n", val, i);
-                    pc.write(log_buffer, length);
+                    logger.addLogToQueue(Log::LogFrameType::DEBUG, "Found int %d at %d !\r\n", val, i);
                     ThisThread::sleep_for(100ms);
                 }
             }
 
-            length = snprintf(log_buffer, LOG_BUFFER_LENGTH, "[DEBUG]: End Parsing !\r\n");
-            pc.write(log_buffer, length);
+            logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Parsing !");
 
             lexer_tokens.clear();
             pc.set_blocking(true);

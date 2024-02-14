@@ -122,7 +122,7 @@ begin_of_loop:
                         tokens.push_back(current_token);
                         isLastTokenFinishLexing = true;
                     } else if (current_token.stringValue.length() >= 5) {
-                        fprintf(stderr, "\r\n[ERR]: Invalid true/false keyword got: %s!\r\n", current_token.stringValue.c_str());
+                        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Invalid true/false keyword got: %s!", current_token.stringValue.c_str());
                         // Make a immediate return
                         goto end_of_loop;
                     }
@@ -136,13 +136,13 @@ begin_of_loop:
                         tokens.push_back(current_token);
                         isLastTokenFinishLexing = true;
                     } else if (current_token.stringValue.length() >= 4) {
-                        fprintf(stderr, "\r\n[ERR]: Invalid null keyword got: %s!\r\n", current_token.stringValue.c_str());
+                        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Invalid null keyword got: %s!", current_token.stringValue.c_str());
                         // Make a immediate return
                         goto end_of_loop;
                     }
                 };break;
                 default:{
-                    fprintf(stderr, "\r\n[ERR]: Type unknow, should be String, Number, Boolean or null!\r\n");
+                    Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Type unknow, should be String, Number, Boolean or null!");
                     current_token = JSONToken();
                     isLastTokenFinishLexing = true;
                 };break;
@@ -186,7 +186,7 @@ JSONParser::JSONValue::JSONValue(JSONLexer::JSONToken *token) {
             this->value.floatValue = token->floatValue;
         };break;
         default:{
-            fprintf(stderr, "\r\n[ERR]: Couldn't create JSONValue from this token !\r\n");
+            Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Couldn't create JSONValue from this token !");
         }
     }
 }
@@ -226,48 +226,50 @@ bool JSONParser::JSONValue::isArray() {
 
 bool JSONParser::JSONValue::getBoolean() {
     if (!this->isBoolean())
-        fprintf(stderr, "\r\n[ERR]: Value is not a Boolean !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not a Boolean !");
     
     return this->value.boolValue;
 }
 float JSONParser::JSONValue::getFloat() {
     if (!this->isFloat())
-        fprintf(stderr, "\r\n[ERR]: Value is not a Float !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not a Float !");
     
     return this->value.floatValue;
 }
 int JSONParser::JSONValue::getInt() {
     if (!this->isInt())
-        fprintf(stderr, "\r\n[ERR]: Value is not a Int !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not a Int !");
     
     return this->value.intValue;
 }
 int JSONParser::JSONValue::getNull() {
     if (!this->isNull())
-        fprintf(stderr, "\r\n[ERR]: Value is not NULL !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not NULL !");
     
     return NULL;
 }
 std::string JSONParser::JSONValue::getString() {
     if (!this->isString())
-        fprintf(stderr, "\r\n[ERR]: Value is not a String !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not a String !");
     
     return *this->value.stringValue;
 }
 std::map<std::string, JSONParser::JSONValue>* JSONParser::JSONValue::getMap() {
     if (!this->isMap())
-        fprintf(stderr, "\r\n[ERR]: Value is not a Map !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not a Map !");
     
     return this->value.mapValue;
 }
 std::vector<JSONParser::JSONValue>* JSONParser::JSONValue::getArray() {
     if (!this->isArray())
-        fprintf(stderr, "\r\n[ERR]: Value is not an Array !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not an Array !");
     
     return this->value.arrayValue;
 }
 
 JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *tokens) {
+    if (tokens->empty()) return JSONParser::JSONValue();
+
     if (tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
         std::map<std::string, JSONParser::JSONValue> map;
         tokens->pop_front();
@@ -275,14 +277,14 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
         std::string key;
         while(tokens->front().type != JSONLexer::JSONTokenType::EndObject) {
             if (tokens->front().type != JSONLexer::JSONTokenType::String) {
-                fprintf(stderr, "\r\n[ERR]: Expected key token should be string !\r\n");
+                Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Expected key token should be string !");
                 return JSONParser::JSONValue();
             }
             key = tokens->front().stringValue;
             tokens->pop_front();
 
             if (tokens->front().type != JSONLexer::JSONTokenType::Colon) {
-                fprintf(stderr, "\r\n[ERR]: Expected Colon between key and value!\r\n");
+                Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Expected Colon between key and value!");
                 return JSONParser::JSONValue();
             }
             tokens->pop_front();
@@ -299,7 +301,7 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
                 if (tokens->front().type == JSONLexer::JSONTokenType::Comma) {
                     tokens->pop_front();
                 } else {
-                    fprintf(stderr, "\r\n[ERR]: Expected Comma between entries!\r\n");
+                    Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Expected Comma between entries!");
                     return JSONParser::JSONValue();
                 }
             }
@@ -325,7 +327,7 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
                 if (tokens->front().type == JSONLexer::JSONTokenType::Comma) {
                     tokens->pop_front();
                 } else {
-                    fprintf(stderr, "\r\n[ERR]: Expected Comma between entries!\r\n");
+                    Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Expected Comma between entries!");
                     return JSONParser::JSONValue();
                 }
             }
@@ -334,7 +336,7 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
 
         return JSONParser::JSONValue(&vec);
     }else {
-        fprintf(stderr, "\r\n[ERR]: First token should be '{' or '[' !\r\n");
+        Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "First token should be '{' or '[' !");
         return JSONParser::JSONValue();
     }
 }
