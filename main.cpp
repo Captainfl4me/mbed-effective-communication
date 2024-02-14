@@ -13,7 +13,12 @@ char read_buffer[READ_BUFFER_LENGTH] = {0};
 
 PwmOut led(LED1);
 BufferedSerial pc(USBTX, USBRX, 115200);
+
+#ifdef MBED_DEBUG
 Log::Logger logger(&pc, Log::LogFrameType::DEBUG);
+#else 
+Log::Logger logger(&pc, Log::LogFrameType::ERROR);
+#endif
 
 Thread thread;
 void watchdog_thread(){
