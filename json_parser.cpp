@@ -267,7 +267,7 @@ std::vector<JSONParser::JSONValue>* JSONParser::JSONValue::getArray() {
     return this->value.arrayValue;
 }
 
-JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *tokens) {
+JSONParser::JSONValue JSONParser::JSONValue::Deserialize(std::list<JSONLexer::JSONToken> *tokens) {
     if (tokens->empty()) return JSONParser::JSONValue();
 
     if (tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
@@ -291,7 +291,7 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
 
             if (tokens->front().type == JSONLexer::JSONTokenType::StartArray 
             || tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
-                map[key] = JSONParser::ParseTokens(tokens);
+                map[key] = JSONParser::JSONValue::Deserialize(tokens);
             } else {
                 map[key] = JSONParser::JSONValue(&tokens->front());
                 tokens->pop_front();
@@ -317,7 +317,7 @@ JSONParser::JSONValue JSONParser::ParseTokens(std::list<JSONLexer::JSONToken> *t
             
             if (tokens->front().type == JSONLexer::JSONTokenType::StartArray 
             || tokens->front().type == JSONLexer::JSONTokenType::StartObject) {
-                vec.push_back(JSONParser::ParseTokens(tokens));
+                vec.push_back(JSONParser::JSONValue::Deserialize(tokens));
             } else {
                 vec.push_back(JSONParser::JSONValue(&tokens->front()));
                 tokens->pop_front();

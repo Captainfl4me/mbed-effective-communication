@@ -92,7 +92,7 @@ int main()
 
             logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Lexing: tokens = %d !", lexer_tokens.size());
 
-            JSONParser::JSONValue value = JSONParser::ParseTokens(&lexer_tokens);
+            JSONParser::JSONValue value = JSONParser::JSONValue::Deserialize(&lexer_tokens);
             if (value.isMap()) {
                 if (value.getMap()->count("led")) {
                     int val = value.getMap()->at("led").getInt();

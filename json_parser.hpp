@@ -88,7 +88,8 @@ namespace JSONParser {
 
         std::map<std::string, JSONParser::JSONValue>* getMap();
         std::vector<JSONParser::JSONValue>* getArray();
-    };
 
-    JSONValue ParseTokens(std::list<JSONLexer::JSONToken> *tokens);
+        std::string Serialize();
+        static JSONValue Deserialize(std::list<JSONLexer::JSONToken> *tokens);
+    };
 }
