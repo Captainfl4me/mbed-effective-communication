@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <sstream>
 #include "logger.hpp"
 
 namespace JSONLexer {
@@ -89,7 +90,7 @@ namespace JSONParser {
         std::map<std::string, JSONParser::JSONValue>* getMap();
         std::vector<JSONParser::JSONValue>* getArray();
 
-        std::string Serialize();
+        std::string Serialize() const;
         static JSONValue Deserialize(std::list<JSONLexer::JSONToken> *tokens);
     };
 }

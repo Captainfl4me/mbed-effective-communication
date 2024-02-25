@@ -95,27 +95,15 @@ int main()
             JSONParser::JSONValue value = JSONParser::JSONValue::Deserialize(&lexer_tokens);
             if (value.isMap()) {
                 if (value.getMap()->count("led")) {
-                    int val = value.getMap()->at("led").getInt();
-                    logger.addLogToQueue(Log::LogFrameType::INFO, "Change LED value %d !", val);
-                    led.write((float)val / 255);
-                }
-                if (value.getMap()->count("a")) {
-                    JSONParser::JSONValue a = value.getMap()->at("a");         
-                    for(int i = 0; i < a.getArray()->size(); i++) {
-                        int val = a.getArray()->at(i).getInt();
-                        logger.addLogToQueue(Log::LogFrameType::DEBUG, "Found int %d at %d !", val, i);
-                        ThisThread::sleep_for(100ms);
+                    if (value.getMap()->at("led").isInt()) {
+                        int val = value.getMap()->at("led").getInt();
+                        logger.addLogToQueue(Log::LogFrameType::INFO, "Change LED value %d !", val);
+                        led.write((float)val / 255);
                     }
-                }
-            } else if (value.isArray()) {
-                for(int i = 0; i < value.getArray()->size(); i++) {
-                    int val = value.getArray()->at(i).getInt();
-                    logger.addLogToQueue(Log::LogFrameType::DEBUG, "Found int %d at %d !\r\n", val, i);
-                    ThisThread::sleep_for(100ms);
                 }
             }
 
-            logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Parsing !");
+            logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Parsing obj: %s !", value.Serialize().c_str());
 
             lexer_tokens.clear();
             pc.set_blocking(true);

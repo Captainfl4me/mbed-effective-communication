@@ -1,4 +1,5 @@
 #include "json_parser.hpp"
+#include <algorithm>
 #include <vector>
 
 JSONLexer::LexerResult JSONLexer::LexBuffer(char* buffer, int buffer_length) {
@@ -265,6 +266,56 @@ std::vector<JSONParser::JSONValue>* JSONParser::JSONValue::getArray() {
         Log::Logger::getInstance()->addLogToQueue(Log::LogFrameType::ERROR, "Value is not an Array !");
     
     return this->value.arrayValue;
+}
+
+std::string JSONParser::JSONValue::Serialize() const {
+    switch(this->type) {
+        case JSONParser::JSONValueType::Null:{
+            return std::string("null");
+        };break;
+        case JSONParser::JSONValueType::String:{
+            std::ostringstream ss;
+            ss << "\"" << *this->value.stringValue << "\"";
+            return ss.str();
+        };break;
+        case JSONParser::JSONValueType::Integer:{
+            return std::to_string(this->value.intValue);
+        };break;
+        case JSONParser::JSONValueType::Float:{
+            return std::to_string(this->value.floatValue);
+        };break;
+        case JSONParser::JSONValueType::Boolean:{
+            if (this->value.boolValue)
+                return "true";
+            else
+                return "false";
+        };break;
+        case JSONParser::JSONValueType::Array:{
+            std::ostringstream ss;
+            ss << '[';
+            for (int i = 0; i < this->value.arrayValue->size(); i++) {
+                ss << this->value.arrayValue->at(i).Serialize();
+                if (i < this->value.arrayValue->size()-1) ss << ',';
+            }
+            ss << ']';
+            return ss.str();
+        };break;
+        case JSONParser::JSONValueType::Object:{
+            std::ostringstream ss;
+            ss << '{';
+            bool isFirstPair = true;
+            for (const std::pair<const std::string, JSONParser::JSONValue>& kv: *this->value.mapValue) {
+                // If not the first key/value pair then add a comma
+                if (isFirstPair) isFirstPair = false;
+                else ss << ',';
+
+                ss << '"' << kv.first << "\":" << kv.second.Serialize();
+            }
+            ss << '}';
+            return ss.str();
+        };break;
+    }
+    return "";
 }
 
 JSONParser::JSONValue JSONParser::JSONValue::Deserialize(std::list<JSONLexer::JSONToken> *tokens) {
