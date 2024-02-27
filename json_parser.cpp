@@ -192,6 +192,10 @@ JSONParser::JSONValue::JSONValue(JSONLexer::JSONToken *token) {
     }
 }
 
+JSONParser::JSONValue::JSONValue(std::string* str) {
+    this->type = JSONParser::JSONValueType::String;
+    this->value.stringValue = str;
+}
 JSONParser::JSONValue::JSONValue(std::map<std::string, JSONParser::JSONValue> *map) {
     this->type = JSONParser::JSONValueType::Object;
     this->value.mapValue = new std::map<std::string, JSONParser::JSONValue>(*map);

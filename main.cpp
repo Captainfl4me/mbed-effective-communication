@@ -2,8 +2,12 @@
 #include "json_parser.hpp"
 #include "logger.hpp"
 
+#include <chrono>
+#include <cstddef>
 #include <string>
 #include <list>
+
+#include "chrono_utils.hpp"
 
 #define READ_BUFFER_LENGTH 64
 
@@ -12,12 +16,13 @@ char previous_read_buffer[READ_BUFFER_LENGTH] = {0};
 char read_buffer[READ_BUFFER_LENGTH] = {0};
 
 PwmOut led(LED1);
+float blinkSeconds = 1.0f;
 BufferedSerial pc(USBTX, USBRX, 115200);
 
 #ifdef MBED_DEBUG
 Log::Logger logger(&pc, Log::LogFrameType::DEBUG);
 #else 
-Log::Logger logger(&pc, Log::LogFrameType::ERROR);
+Log::Logger logger(&pc, Log::LogFrameType::RELEASE);
 #endif
 
 Thread thread;
@@ -25,6 +30,16 @@ void watchdog_thread(){
     while (true) {
         logger.flushLogToSerial();
         ThisThread::sleep_for(10ms);
+    }
+}
+Thread *blink_thread;
+void blink_loop(){
+    auto delay = round<std::chrono::milliseconds>(std::chrono::duration<double>{blinkSeconds});
+    while (true) {
+        led.write(1.0f);
+        ThisThread::sleep_for(delay);
+        led.write(0.0f);
+        ThisThread::sleep_for(delay);
     }
 }
 
@@ -93,21 +108,67 @@ int main()
             logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Lexing: tokens = %d !", lexer_tokens.size());
 
             JSONParser::JSONValue value = JSONParser::JSONValue::Deserialize(&lexer_tokens);
+
+            // Handling JSON request
+            JSONParser::JSONValue response(new std::map<std::string, JSONParser::JSONValue>());
             if (value.isMap()) {
-                if (value.getMap()->count("led")) {
-                    if (value.getMap()->at("led").isInt()) {
-                        int val = value.getMap()->at("led").getInt();
-                        logger.addLogToQueue(Log::LogFrameType::INFO, "Change LED value %d !", val);
-                        led.write((float)val / 255);
+                auto rootMap = value.getMap();
+                if (rootMap->count("mode") && rootMap->at("mode").isInt()) {
+                    int mode = rootMap->at("mode").getInt();
+
+                    if (blink_thread != NULL) {
+                        blink_thread->terminate();
+                        delete blink_thread;
+                        blink_thread = NULL;
+                        led.write(0.0f);
+                        
+                        logger.addLogToQueue(Log::LogFrameType::INFO, "Terminate blink thread!");
+                    }
+                    switch (mode) {
+                        case 0:{
+                            if(rootMap->count("on") && rootMap->at("on").isBoolean()) {
+                                led.write(rootMap->at("on").getBoolean() ? 1 : 0);
+                            } else {
+                                logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 0 expect boolean \\\"on\\\" to be defined!");
+                                response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 0 expect boolean \\\"on\\\" to be defined."))));
+                            }
+                        };break;
+                        case 1:{
+                            if(rootMap->count("v") && (rootMap->at("v").isFloat())) {
+                                float val = rootMap->at("v").getFloat();
+                                if (val >= 0.0f && val <= 1.0f) {
+                                    led.write(val);
+                                } else {
+                                    logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 1 expect float \\\"v\\\" to be between 0 and 1!");
+                                    response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 1 expect float \\\"v\\\" to be between 0 and 1."))));
+                                }
+                            } else {
+                                logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 1 expect float \\\"v\\\" to be defined!");
+                                response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 1 expect float \\\"v\\\" to be defined."))));
+                            }
+                        };break;
+                        case 2:{
+                            if(rootMap->count("d") && (rootMap->at("d").isFloat())) {
+                                blinkSeconds = rootMap->at("d").getFloat();
+                                blink_thread = new Thread();
+                                blink_thread->start(callback(blink_loop));
+                            } else {
+                                logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 2 expect float \\\"d\\\" to be defined!");
+                                response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 2 expect float \\\"d\\\" to be defined."))));
+                            }
+                        };break;
+                        default:{
+                            response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Unknown mode."))));
+                        };break;
                     }
                 }
             }
+            logger.addLogToQueue(Log::LogFrameType::RELEASE, response.Serialize());
 
-            logger.addLogToQueue(Log::LogFrameType::DEBUG, "End Parsing obj: %s !", value.Serialize().c_str());
+            logger.addLogToQueue(Log::LogFrameType::INFO, "End Parsing obj: %s !", value.Serialize().c_str());
 
             lexer_tokens.clear();
             pc.set_blocking(true);
         }
     }
 }
-

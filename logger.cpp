@@ -17,7 +17,8 @@ void Logger::flushLogToSerial() {
             std::string bufToWrite;
             Log::LoggerFrame log = this->log_queue.front();
 
-            bufToWrite.append("[");
+            if (log.type < LogFrameType::RELEASE)
+                bufToWrite.append("[");
             switch (log.type) {
                 case LogFrameType::DEBUG:
                     bufToWrite.append("DEBUG");
@@ -31,8 +32,10 @@ void Logger::flushLogToSerial() {
                 case LogFrameType::ERROR:
                     bufToWrite.append("ERROR");
                     break;
+                default:break;
             }
-            bufToWrite.append("] -> ");
+            if (log.type < LogFrameType::RELEASE)
+                bufToWrite.append("] -> ");
             bufToWrite.append(log.msg);
             bufToWrite.append("\r\n");
 

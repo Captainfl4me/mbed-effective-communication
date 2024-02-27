@@ -69,6 +69,7 @@ namespace JSONParser {
 
     public:
         JSONValue();
+        JSONValue(std::string* str);
         JSONValue(JSONLexer::JSONToken *token);
         JSONValue(std::map<std::string, JSONParser::JSONValue> *map);
         JSONValue(std::vector<JSONParser::JSONValue> *vec);
