@@ -36,6 +36,6 @@ There is multiple serial commands available describe here:
 
 JSON|Description
 --|--
-```json {"mode":0,"on":true/false}```|Mode 0 is a on/off mode for the built-in LED and expect a boolean "on" key to set the led state.
-```json {"mode":1,"v":0.5}```| Mode 1 is a PWM mode for the built-in led allowing you to control the brightness of it by ranging from 0.0 to 1.0. This mode expect a float "v" key.
-```json {"mode":2,"d":1.0}```| Mode 2 is a blink mode for the built-in led allowing you to control the blinking frequency by settings the delay between on-off state in seconds. This mode expect a float "d" key. The delay is round with a milliseconds precision.
+`{"mode":0,"on":true}`|Mode 0 is a on/off mode for the built-in LED and expect a boolean "on" key to set the led state.
+`{"mode":1,"v":0.5}`| Mode 1 is a PWM mode for the built-in led allowing you to control the brightness of it by ranging from 0.0 to 1.0. This mode expect a float "v" key.
+`{"mode":2,"d":1.0}`| Mode 2 is a blink mode for the built-in led allowing you to control the blinking frequency by settings the delay between on-off state in seconds. This mode expect a float "d" key. The delay is round with a milliseconds precision.
