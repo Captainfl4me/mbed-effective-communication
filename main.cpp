@@ -28,12 +28,14 @@ Log::Logger logger(&pc, Log::LogFrameType::RELEASE);
 Thread thread;
 void watchdog_thread(){
     while (true) {
+        // Write all log in queue to the output stream (serial communication).
         logger.flushLogToSerial();
         ThisThread::sleep_for(10ms);
     }
 }
 Thread *blink_thread;
 void blink_loop(){
+    // Convert float representing seconds to chrono object with milliseconds precision.
     auto delay = round<std::chrono::milliseconds>(std::chrono::duration<double>{blinkSeconds});
     while (true) {
         led.write(1.0f);
@@ -46,8 +48,10 @@ void blink_loop(){
 // main() runs in its own thread in the OS
 int main()
 {
+    // Start watchdog thread, will flush the log queue.
     thread.start(callback(watchdog_thread));
 
+    // Set blocking to serial connection so that its wait for input to be received.
     pc.set_blocking(true);
     logger.addLogToQueue(Log::LogFrameType::INFO, "Program started!");
 
@@ -69,7 +73,7 @@ int main()
 
                 int left_in_read_buffer = read_length;
                 while(left_in_read_buffer > 0) {
-                    // Starting point of read buffer after slicing it
+                    // Starting point of the read buffer after slicing it
                     size_t read_buffer_offset = read_length - left_in_read_buffer;
                     // Get size of char left when we merge new buffer with previous one
                     left_in_read_buffer = previous_buffer_length + read_length - READ_BUFFER_LENGTH;
@@ -87,21 +91,22 @@ int main()
                     if (lex_result.isLastTokenFinishLexing) {
                         previous_buffer_length = 0;
                     } else {
+                        // Handling non finish lexing
                         previous_buffer_length = read_length - lex_result.lastTokenStartIndex;
 
+                        // shift non-lex char to beginning of the buffer.
                         std::memmove(previous_read_buffer, previous_read_buffer + lex_result.lastTokenStartIndex, previous_buffer_length);
                     }
                     
-                    // // DEBUG: Show what is the ouput of the Lexer
+                    // DEBUG: Show what is the ouput of the Lexer
                     logger.addLogToQueue(Log::LogFrameType::DEBUG, "Tokens_len = %d | isFinishLexing = %d | lastTokenIndex = %d",  lex_result.tokens.size(), lex_result.isLastTokenFinishLexing, lex_result.lastTokenStartIndex);
 
-                    while (!lex_result.tokens.empty()) {
-                        lexer_tokens.push_back(lex_result.tokens.front());
-                        lex_result.tokens.pop_front();
-                    }
+                    // Save result list by merging it into tokens list 
+                    lexer_tokens.splice(lexer_tokens.end(), lex_result.tokens);
                 }
 
                 ThisThread::sleep_for(50ms);
+                // Set non-blocking so that we can check if there is no more data to read.
                 pc.set_blocking(false);
             }while((read_length = pc.read(read_buffer, READ_BUFFER_LENGTH)) != -EAGAIN);
 
@@ -109,16 +114,21 @@ int main()
 
             JSONParser::JSONValue value = JSONParser::JSONValue::Deserialize(&lexer_tokens);
 
-            // Handling JSON request
+            // Create JSON response object from empty map
             JSONParser::JSONValue response(new std::map<std::string, JSONParser::JSONValue>());
+
+            // Handling JSON request
             if (value.isMap()) {
                 auto rootMap = value.getMap();
                 if (rootMap->count("mode") && rootMap->at("mode").isInt()) {
+                    // Get requested mode
                     int mode = rootMap->at("mode").getInt();
 
+                    // If blink thread was previously running we stop it
                     if (blink_thread != NULL) {
                         blink_thread->terminate();
                         delete blink_thread;
+                        // Unassigned now dangling pointer.
                         blink_thread = NULL;
                         led.write(0.0f);
                         
@@ -127,9 +137,11 @@ int main()
                     switch (mode) {
                         case 0:{
                             if(rootMap->count("on") && rootMap->at("on").isBoolean()) {
+                                // Set led state to 1 (on) if on is true, else set led state to 0 (off) 
                                 led.write(rootMap->at("on").getBoolean() ? 1 : 0);
                             } else {
                                 logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 0 expect boolean \\\"on\\\" to be defined!");
+                                // Insert err message in response object
                                 response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 0 expect boolean \\\"on\\\" to be defined."))));
                             }
                         };break;
@@ -140,34 +152,42 @@ int main()
                                     led.write(val);
                                 } else {
                                     logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 1 expect float \\\"v\\\" to be between 0 and 1!");
+                                    // Insert err message in response object
                                     response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 1 expect float \\\"v\\\" to be between 0 and 1."))));
                                 }
                             } else {
                                 logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 1 expect float \\\"v\\\" to be defined!");
+                                // Insert err message in response object
                                 response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 1 expect float \\\"v\\\" to be defined."))));
                             }
                         };break;
                         case 2:{
                             if(rootMap->count("d") && (rootMap->at("d").isFloat())) {
                                 blinkSeconds = rootMap->at("d").getFloat();
+                                // Create new work thread to asynchronously run our blink command.
                                 blink_thread = new Thread();
                                 blink_thread->start(callback(blink_loop));
                             } else {
                                 logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 2 expect float \\\"d\\\" to be defined!");
+                                // Insert err message in response object
                                 response.getMap()->insert(std::pair<std::string,JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Mode 2 expect float \\\"d\\\" to be defined."))));
                             }
                         };break;
                         default:{
+                            // Insert err message in response object
                             response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Unknown mode."))));
                         };break;
                     }
                 }
             }
+            // Output string formatted JSON message.
             logger.addLogToQueue(Log::LogFrameType::RELEASE, response.Serialize());
 
             logger.addLogToQueue(Log::LogFrameType::INFO, "End Parsing obj: %s !", value.Serialize().c_str());
 
+            // Clear tokens list for the next input.
             lexer_tokens.clear();
+            // Set to blocking to wait for new message.
             pc.set_blocking(true);
         }
     }
