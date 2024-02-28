@@ -1,9 +1,16 @@
+/* Main program entry for Effective Communication project
+ * This code is implemented using Mbed OS 6.17.0
+ *
+ * Author: Nicolas THIERRY
+ */
 #include "mbed.h"
 #include "json_parser.hpp"
 #include "logger.hpp"
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <map>
 #include <string>
 #include <list>
 
@@ -25,6 +32,17 @@ Log::Logger logger(&pc, Log::LogFrameType::DEBUG);
 Log::Logger logger(&pc, Log::LogFrameType::RELEASE);
 #endif
 
+struct State{
+    int mode = 0;
+    float led_value = 0.0f;
+};
+State current_state;
+
+void write_builtin_led(float value) {
+    led.write(value);
+    current_state.led_value = led.read();
+}
+
 Thread thread;
 void watchdog_thread(){
     while (true) {
@@ -38,9 +56,9 @@ void blink_loop(){
     // Convert float representing seconds to chrono object with milliseconds precision.
     auto delay = round<std::chrono::milliseconds>(std::chrono::duration<double>{blinkSeconds});
     while (true) {
-        led.write(1.0f);
+        write_builtin_led(1.0f);
         ThisThread::sleep_for(delay);
-        led.write(0.0f);
+        write_builtin_led(0.0f);
         ThisThread::sleep_for(delay);
     }
 }
@@ -130,7 +148,8 @@ int main()
                         delete blink_thread;
                         // Unassigned now dangling pointer.
                         blink_thread = NULL;
-                        led.write(0.0f);
+                        current_state.led_value = 0.0f;
+                        write_builtin_led(0.0f);
                         
                         logger.addLogToQueue(Log::LogFrameType::INFO, "Terminate blink thread!");
                     }
@@ -138,7 +157,8 @@ int main()
                         case 0:{
                             if(rootMap->count("on") && rootMap->at("on").isBoolean()) {
                                 // Set led state to 1 (on) if on is true, else set led state to 0 (off) 
-                                led.write(rootMap->at("on").getBoolean() ? 1 : 0);
+                                write_builtin_led(rootMap->at("on").getBoolean() ? 1 : 0);
+                                current_state.mode = 0;
                             } else {
                                 logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 0 expect boolean \\\"on\\\" to be defined!");
                                 // Insert err message in response object
@@ -149,7 +169,8 @@ int main()
                             if(rootMap->count("v") && (rootMap->at("v").isFloat())) {
                                 float val = rootMap->at("v").getFloat();
                                 if (val >= 0.0f && val <= 1.0f) {
-                                    led.write(val);
+                                    write_builtin_led(val);
+                                    current_state.mode = 1;
                                 } else {
                                     logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 1 expect float \\\"v\\\" to be between 0 and 1!");
                                     // Insert err message in response object
@@ -167,6 +188,7 @@ int main()
                                 // Create new work thread to asynchronously run our blink command.
                                 blink_thread = new Thread();
                                 blink_thread->start(callback(blink_loop));
+                                current_state.mode = 2;
                             } else {
                                 logger.addLogToQueue(Log::LogFrameType::ERROR, "Mode 2 expect float \\\"d\\\" to be defined!");
                                 // Insert err message in response object
@@ -176,6 +198,24 @@ int main()
                         default:{
                             // Insert err message in response object
                             response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Unknown mode."))));
+                        };break;
+                    }
+                }
+                if (rootMap->count("req") && rootMap->at("req").isInt()) {
+                    int request = rootMap->at("req").getInt();
+                    switch (request) {
+                        case 0:{
+                            JSONParser::JSONValue status(new std::map<std::string, JSONParser::JSONValue>);
+
+                            status.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("mode", JSONParser::JSONValue(current_state.mode)));
+                            status.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("led", JSONParser::JSONValue(current_state.led_value)));
+                            
+                            // Insert status message in response object
+                            response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("status", status));
+                        };break;                     
+                        default:{
+                            // Insert err message in response object
+                            response.getMap()->insert(std::pair<std::string, JSONParser::JSONValue>("err", JSONParser::JSONValue(new std::string("Unknown request."))));
                         };break;
                     }
                 }
