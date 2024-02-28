@@ -1,3 +1,9 @@
+/*
+ * Implementation of std::chrono::round for C++11 since it is only implemented in C++17
+ *
+ * Source code: https://howardhinnant.github.io/duration_io/chrono_util.html
+ */
+
 #pragma once
 #include <chrono>
 
