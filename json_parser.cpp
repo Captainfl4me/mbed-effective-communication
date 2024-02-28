@@ -198,6 +198,18 @@ JSONParser::JSONValue::JSONValue(std::string* str) {
     this->type = JSONParser::JSONValueType::String;
     this->value.stringValue = str;
 }
+JSONParser::JSONValue::JSONValue(int i) {
+    this->type = JSONParser::JSONValueType::Integer;
+    this->value.intValue = i;
+}
+JSONParser::JSONValue::JSONValue(float f) {
+    this->type = JSONParser::JSONValueType::Float;
+    this->value.floatValue = f;
+}
+JSONParser::JSONValue::JSONValue(bool b) {
+    this->type = JSONParser::JSONValueType::Boolean;
+    this->value.boolValue = b;
+}
 JSONParser::JSONValue::JSONValue(std::map<std::string, JSONParser::JSONValue> *map) {
     this->type = JSONParser::JSONValueType::Object;
     this->value.mapValue = new std::map<std::string, JSONParser::JSONValue>(*map);

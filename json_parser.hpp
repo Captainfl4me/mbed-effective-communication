@@ -89,16 +89,37 @@ namespace JSONParser {
     public:
         /** Default constructor for JSONValue.
         *
-        * @return JSONValue of type null.
+        * @return JSONValue of type Null.
         */
         JSONValue();
 
         /** Construct JSONValue from std::string.
         *
         * @param str reference to std::string.
-        * @return JSONValue of type string.
+        * @return JSONValue of type String.
         */
         JSONValue(std::string* str);
+
+        /** Construct JSONValue from int.
+        *
+        * @param i int value.
+        * @return JSONValue of type Integer.
+        */
+        JSONValue(int i);
+
+        /** Construct JSONValue from float.
+        *
+        * @param f float value.
+        * @return JSONValue of type Float.
+        */
+        JSONValue(float f);
+
+        /** Construct JSONValue from bool.
+        *
+        * @param b bool value.
+        * @return JSONValue of type Boolean.
+        */
+        JSONValue(bool b);
 
         /** Construct JSONValue from std::map.
         *
