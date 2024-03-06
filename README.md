@@ -1,4 +1,4 @@
-# Effective Communication assignment
+# Effective Communication
 
 This repository contains code for the effective communication assignment. Please find further details below.
 
