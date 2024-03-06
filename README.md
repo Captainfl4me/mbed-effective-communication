@@ -32,6 +32,8 @@ RELEASE|4
 
 ## SERIAL commands
 
+### Inputs
+
 There is multiple serial commands available describe here:
 
 JSON|Description
@@ -39,3 +41,9 @@ JSON|Description
 `{"mode":0,"on":true}`|Mode 0 is a on/off mode for the built-in LED and expects a boolean "on" key to set the led state.
 `{"mode":1,"v":0.5}`| Mode 1 is a PWM mode for the built-in led allowing you to control the brightness of it by ranging from 0.0 to 1.0. This mode expects a float "v" key.
 `{"mode":2,"d":1.0}`| Mode 2 is a blink mode for the built-in led allowing you to control the blinking frequency by settings the delay between on-off state in seconds. This mode expects a float "d" key. The delay is rounded with a milliseconds precision.
+`{"req":0}`| Request current status to microcontroller. Expected response should be with this format `{"status":{"mode":0,"led":1}}`. Where "led" is the current led power and mode is the last mode updated.
+
+### Reponse
+
+After an input, the microcontroller should respond back. If the input expects a response then it will be provide else it would be an empty object. The response could also contain a "err" field with the error message if something wrong happens.
+
